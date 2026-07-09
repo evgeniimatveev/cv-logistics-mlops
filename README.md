@@ -16,7 +16,33 @@ A warehouse robot photographs a bin and the model predicts how many items are in
 
 **Task:** 5-class classification (predict count 1-5) via transfer learning on a frozen/fine-tuned MobileNetV2 or ResNet18 backbone.
 
-**Pipeline:** `S3 (aft-vbi-pds) → download_data → clean_data (manifest + split) → model_training (CNN) → MLflow + W&B → SQL/DuckDB analysis → FastAPI inference`
+---
+
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph Data
+        S3[("S3: aft-vbi-pds\n~10,441 images")] --> DL["download_data"]
+        DL --> CD["clean_data\nmanifest + train/val/test split"]
+    end
+
+    subgraph Training
+        CD --> MT["model_training\nMobileNetV2 / ResNet18"]
+    end
+
+    subgraph Tracking
+        MT --> MLF[("MLflow\nPostgres backend")]
+        MT --> WB[("W&B\ncloud")]
+    end
+
+    subgraph Analytics
+        MLF --> SQL["Postgres SQL"]
+        MLF --> DDB[("DuckDB\nlocal mirror")]
+    end
+
+    MT --> API["FastAPI\ninference"]
+```
 
 ---
 
@@ -26,7 +52,14 @@ A warehouse robot photographs a bin and the model predicts how many items are in
 
 First baseline (`full_run_v1`, frozen MobileNetV2 backbone, 10 epochs): **32.2% val accuracy, 0.95 val MAE**. `train_loss`/`train_accuracy` improve steadily while `val_*` stays flat and noisy — the classic signature of a linear-probe ceiling: a single trainable layer on top of frozen, generic ImageNet features can only get so far at a task ImageNet was never trained for (guessing item counts in visual clutter, not "what object is this").
 
-Follow-up: `scripts/run_benchmarks.py` compares frozen vs. partially-unfrozen vs. fully fine-tuned backbones head-to-head (same data split, same seed), logged to the same MLflow experiment. Full comparison table: [`BENCHMARKS.md`](BENCHMARKS.md).
+| Config | `unfreeze_layers` | Val accuracy | Val MAE | Best val loss |
+|---|---|---|---|---|
+| Frozen backbone (baseline) | 0 | 32.2% | 0.95 | 1.465 |
+| Partial fine-tune (2 blocks) | 2 | *running* | *running* | *running* |
+| Partial fine-tune (4 blocks) | 4 | *pending* | *pending* | *pending* |
+| Full fine-tune | -1 | *pending* | *pending* | *pending* |
+
+Live comparison generated straight from Postgres: [`BENCHMARKS.md`](BENCHMARKS.md) (refresh with `uv run python scripts/generate_benchmarks_md.py`).
 
 ---
 
