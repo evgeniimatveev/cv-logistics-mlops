@@ -20,6 +20,16 @@ A warehouse robot photographs a bin and the model predicts how many items are in
 
 ---
 
+## Results
+
+![W&B run dashboard](docs/screenshots/wandb_full_run_v1.png)
+
+First baseline (`full_run_v1`, frozen MobileNetV2 backbone, 10 epochs): **32.2% val accuracy, 0.95 val MAE**. `train_loss`/`train_accuracy` improve steadily while `val_*` stays flat and noisy — the classic signature of a linear-probe ceiling: a single trainable layer on top of frozen, generic ImageNet features can only get so far at a task ImageNet was never trained for (guessing item counts in visual clutter, not "what object is this").
+
+Follow-up: `scripts/run_benchmarks.py` compares frozen vs. partially-unfrozen vs. fully fine-tuned backbones head-to-head (same data split, same seed), logged to the same MLflow experiment. Full comparison table: [`BENCHMARKS.md`](BENCHMARKS.md).
+
+---
+
 ## Why Postgres *and* DuckDB
 
 One MLflow tracking server (shared with `mlops_project`) writes every run to a single Postgres `mlflow_db` — that's the source of truth. `sql_queries/export_to_duckdb.py` pulls this experiment's runs/params/metrics out of Postgres into a local DuckDB file, so you can do fast ad-hoc SQL against experiment history without a live Postgres connection.
@@ -32,14 +42,18 @@ duckdb analytics/mlflow_runs.duckdb -c "select * from runs limit 5"
 ### Best runs by validation MAE (Postgres)
 
 ```sql
-SELECT r.run_uuid, e.name AS experiment_name, m.value AS val_mae
+SELECT r.run_uuid, r.name AS run_name, lm.value AS val_mae
 FROM runs r
-JOIN experiments e ON r.experiment_id = e.experiment_id
-JOIN metrics     m ON r.run_uuid      = m.run_uuid
-WHERE m.key = 'val_mae' AND e.name = 'cv_logistics_bin_count_v1'
-ORDER BY m.value ASC
+JOIN experiments     e  ON r.experiment_id = e.experiment_id
+JOIN latest_metrics   lm ON r.run_uuid      = lm.run_uuid
+WHERE lm.key = 'val_mae'
+  AND e.name = 'cv_logistics_bin_count_v1'
+  AND r.lifecycle_stage = 'active'
+ORDER BY lm.value ASC
 LIMIT 5;
 ```
+
+(Uses `latest_metrics`, not `metrics` — the raw table has one row per epoch, so ordering by it directly mixes epochs across runs once more than one run exists.)
 
 More in `sql_queries/` — hyperparameter impact, per-experiment run counts, epoch-level learning curves.
 
@@ -57,8 +71,10 @@ cv-logistics-mlops/
 │   └── utils/                # Dataset + model-factory shared by training & sweeps
 ├── sql_queries/               # Postgres analytics + Postgres->DuckDB export
 ├── sweeps/                    # W&B Bayesian sweep (backbone, lr, batch size, dropout)
+├── scripts/                   # benchmark runner + BENCHMARKS.md generator
 ├── config/                    # mlflow_config.yaml, duckdb_config.yaml
 ├── models/                    # saved checkpoints (gitignored)
+├── docs/screenshots/          # README images
 └── .github/workflows/         # CI
 ```
 
@@ -84,6 +100,10 @@ uv run python -m src.model_training.run --epochs 8 --backbone mobilenet_v2
 
 # 4. W&B hyperparameter sweep (10 Bayesian runs)
 cd sweeps && uv run python sweep.py
+
+# 4b. Or: fixed frozen/partial/full fine-tune comparison + results table
+uv run python scripts/run_benchmarks.py
+uv run python scripts/generate_benchmarks_md.py   # refreshes BENCHMARKS.md
 
 # 5. Analytics
 uv run python sql_queries/export_to_duckdb.py
