@@ -19,6 +19,7 @@ FROM runs r
 JOIN metrics m ON r.run_uuid = m.run_uuid
 JOIN experiments e ON r.experiment_id = e.experiment_id
 WHERE e.name = 'cv_logistics_bin_count_v1'
+  AND r.lifecycle_stage = 'active'  -- exclude soft-deleted runs
 GROUP BY r.run_uuid
 HAVING MAX(CASE WHEN m.key = 'val_accuracy' THEN m.value END) > 0.4
    AND MAX(CASE WHEN m.key = 'val_mae' THEN m.value END) > 1.0

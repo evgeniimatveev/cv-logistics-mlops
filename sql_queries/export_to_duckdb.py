@@ -30,21 +30,21 @@ TABLES = {
     "runs": """
         SELECT r.run_uuid, r.experiment_id, r.status, r.start_time, r.end_time, r.name
         FROM runs r JOIN experiments e ON r.experiment_id = e.experiment_id
-        WHERE e.name = %(experiment_name)s
+        WHERE e.name = %(experiment_name)s AND r.lifecycle_stage = 'active'
     """,
     "metrics": """
         SELECT m.run_uuid, m.key, m.value, m.step
         FROM metrics m
         JOIN runs r ON m.run_uuid = r.run_uuid
         JOIN experiments e ON r.experiment_id = e.experiment_id
-        WHERE e.name = %(experiment_name)s
+        WHERE e.name = %(experiment_name)s AND r.lifecycle_stage = 'active'
     """,
     "params": """
         SELECT p.run_uuid, p.key, p.value
         FROM params p
         JOIN runs r ON p.run_uuid = r.run_uuid
         JOIN experiments e ON r.experiment_id = e.experiment_id
-        WHERE e.name = %(experiment_name)s
+        WHERE e.name = %(experiment_name)s AND r.lifecycle_stage = 'active'
     """,
 }
 
