@@ -55,7 +55,7 @@ def run_epoch(model, loader, criterion, optimizer, device, train: bool) -> dict:
 
 def train_one_run(config: dict) -> dict:
     """config keys: backbone, learning_rate, batch_size, epochs,
-    freeze_backbone, dropout, manifest, models_dir, wandb_project, run_name"""
+    unfreeze_layers, dropout, manifest, models_dir, wandb_project, run_name"""
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -65,7 +65,7 @@ def train_one_run(config: dict) -> dict:
     val_loader = DataLoader(val_ds, batch_size=config["batch_size"])
 
     model = build_model(
-        config["backbone"], config["freeze_backbone"], config["dropout"]
+        config["backbone"], config["unfreeze_layers"], config["dropout"]
     ).to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(

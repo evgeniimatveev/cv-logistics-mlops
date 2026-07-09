@@ -20,7 +20,7 @@ DEFAULTS = {
     "learning_rate": 0.001,
     "batch_size": 32,
     "epochs": 6,
-    "freeze_backbone": True,
+    "unfreeze_layers": 0,
     "dropout": 0.3,
 }
 

@@ -25,7 +25,7 @@ _transform = build_transforms(train=False)
 def get_model():
     global _model
     if _model is None:
-        _model = build_model(BACKBONE, freeze_backbone=False, dropout=0.3)
+        _model = build_model(BACKBONE, unfreeze_layers=0, dropout=0.3)
         _model.load_state_dict(torch.load(MODEL_PATH, map_location="cpu"))
         _model.eval()
     return _model

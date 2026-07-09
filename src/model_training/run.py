@@ -30,7 +30,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--learning-rate", type=float, default=0.001)
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--epochs", type=int, default=8)
-    parser.add_argument("--freeze-backbone", action="store_true")
+    parser.add_argument(
+        "--unfreeze-layers", type=int, default=0,
+        help="0 = fully frozen backbone, -1 = fully unfrozen, N>0 = unfreeze last N blocks",
+    )
     parser.add_argument("--dropout", type=float, default=0.3)
     parser.add_argument("--run-name", default=None)
     return parser.parse_args()
@@ -44,7 +47,7 @@ if __name__ == "__main__":
         "learning_rate": args.learning_rate,
         "batch_size": args.batch_size,
         "epochs": args.epochs,
-        "freeze_backbone": args.freeze_backbone,
+        "unfreeze_layers": args.unfreeze_layers,
         "dropout": args.dropout,
         "run_name": args.run_name,
     }

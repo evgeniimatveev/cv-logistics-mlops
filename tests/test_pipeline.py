@@ -44,7 +44,7 @@ def test_dataset_and_model_forward_pass(tmp_path):
     assert image.shape == (3, 224, 224)
     assert 0 <= label.item() <= 4
 
-    model = build_model("mobilenet_v2", freeze_backbone=True, dropout=0.3)
+    model = build_model("mobilenet_v2", unfreeze_layers=0, dropout=0.3)
     batch = torch.stack([train_ds[i][0] for i in range(4)])
     logits = model(batch)
     assert logits.shape == (4, 5)
