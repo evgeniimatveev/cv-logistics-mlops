@@ -1,0 +1,13 @@
+mlflow:
+  # Reuses the same local MLflow server + Postgres backend already running for mlops_project
+  tracking_uri: "http://127.0.0.1:5000"
+
+  # Separate experiment inside the shared MLflow instance
+  experiment_name: "cv_logistics_bin_count_v1"
+
+  artifact_location: "./mlflow_artifacts_v1"
+
+  model_registry: "enabled"
+
+  # Same Postgres backend store as mlops_project (mlflow_db) — one MLflow server, many experiments
+  backend_store_uri: "postgresql://mlflow_user:mlflow_pass123@localhost/mlflow_db"

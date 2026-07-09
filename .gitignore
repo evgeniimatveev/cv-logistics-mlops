@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+mlflow_server.log
+
+# data & artifacts — too large for git, downloaded/generated locally
+data/
+mlflow_artifacts_v1/
+analytics/*.duckdb
+models/*.pt
+models/*.pth
+wandb/
+tracking/
+
+.env

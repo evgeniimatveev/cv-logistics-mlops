@@ -1,0 +1,8 @@
+duckdb:
+  # Local analytics DB — mirrors MLflow run/metric data exported for fast ad-hoc SQL
+  # without hitting the Postgres server. Populated by sql_queries/export_to_duckdb.py
+  database_path: "./analytics/mlflow_runs.duckdb"
+  source_tables:
+    - runs
+    - metrics
+    - params
