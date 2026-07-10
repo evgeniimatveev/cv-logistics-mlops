@@ -72,7 +72,11 @@ Current best model is registered in the MLflow Model Registry as `cv_logistics_b
 <details>
 <summary><strong>More screenshots</strong> — sweep parallel coordinates, parameter importance</summary>
 
-W&B's Bayesian sweep view, all 10 trials: which hyperparameters actually correlated with a lower val MAE (`batch_size`, `unfreeze_layers`, and `learning_rate` came out as the top 3 by importance), and the parallel-coordinates trace of every trial's config against its result.
+W&B's Bayesian sweep view, all 10 trials. `unfreeze_layers` and `batch_size` came out as the top two hyperparameters by importance for `val_mae` — `learning_rate` and `dropout` mattered less than expected given how much attention the controlled comparison put into hand-tuning learning rate per config.
+
+![W&B sweep parameter importance](docs/screenshots/wandb_sweep_param_importance.png)
+
+Parallel-coordinates trace of every trial's config against its result:
 
 ![W&B sweep parallel coordinates](docs/screenshots/wandb_sweep_parallel_coords.png)
 
