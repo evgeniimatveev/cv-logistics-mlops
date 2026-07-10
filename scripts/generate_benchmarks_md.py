@@ -59,18 +59,25 @@ def main() -> None:
         "classification on a 10,441-image subset of the Amazon Bin Image Dataset "
         "(8,352 train / 1,044 val / 1,045 test, stratified split).",
         "",
-        "**Model:** MobileNetV2 (ImageNet-pretrained), transfer learning with a "
-        "`Dropout -> Linear(5)` head. `unfreeze_layers` controls how much of the "
-        "backbone trains alongside the head: `0` = frozen (linear probe), `N` = last "
-        "`N` of its 19 inverted-residual blocks unfrozen, `-1` = full fine-tune.",
+        "**Model:** MobileNetV2 or ResNet18 (ImageNet-pretrained), transfer learning "
+        "with a `Dropout -> Linear(5)` head. `unfreeze_layers` controls how much of "
+        "the backbone trains alongside the head: `0` = frozen (linear probe), `N` = "
+        "last `N` backbone blocks unfrozen, `-1` = full fine-tune. Block granularity "
+        "differs by architecture -- MobileNetV2 has 19 blocks, so `N=2` unfreezes "
+        "~40% of its parameters; ResNet18 only has 5 stage-groups, so the same `N=2` "
+        "already covers ~94% of its parameters (`layer3`+`layer4`, where most of a "
+        "ResNet's weights live). \"Partial\" isn't directly comparable across the two.",
         "",
-        "**Comparison method:** `scripts/run_benchmarks.py` trains all four "
-        "`unfreeze_layers` settings back to back -- same data split, same 5 epochs, "
-        "same batch size/dropout -- varying only `unfreeze_layers` and a "
-        "correspondingly lower learning rate for the more-unfrozen configs (higher "
-        "lr on a pretrained backbone with more trainable layers destroys the "
-        "pretrained weights). `full_run_v1` is an earlier, differently-scoped run "
-        "(frozen, 10 epochs) kept for reference, not part of the controlled comparison.",
+        "**Two sources of runs here:**",
+        "- `bench_*` / `full_run_v1` -- `scripts/run_benchmarks.py`, a controlled "
+        "comparison: fixed MobileNetV2, same 5 epochs/batch size/dropout, only "
+        "`unfreeze_layers` varies, with a hand-picked lower learning rate for the "
+        "more-unfrozen configs (a flat lr across all of them would blow up full "
+        "fine-tune -- see `misty-sweep-8`/`gallant-sweep-6` below for what that "
+        "looks like when the sweep didn't know to scale it down).",
+        "- `*-sweep-N` -- `sweeps/sweep.py`, a 10-trial W&B Bayesian sweep over "
+        "backbone, `unfreeze_layers`, learning rate, batch size, and dropout "
+        "jointly, 4 epochs each. Wider net, less controlled.",
         "",
         "## Results",
         "",
@@ -103,12 +110,15 @@ def main() -> None:
         lines.append(
             f"As of this refresh, **{best_row['run_name']}** leads "
             f"(`unfreeze_layers={best_row['backbone_setting']}`, "
-            f"val MAE {float(best_row['val_mae']):.3f}). Across the controlled "
-            "comparison, accuracy/MAE improved monotonically with more of the "
-            "backbone unfrozen -- no diminishing returns yet within the 5-epoch "
-            "budget tested. If the leader is the full fine-tune config, note its "
-            "val_loss may still have been falling at the last epoch (not yet "
-            "converged) -- worth a longer run to find its real ceiling."
+            f"val MAE {float(best_row['val_mae']):.3f}). In the controlled "
+            "comparison (`bench_*`), accuracy/MAE improved monotonically with more "
+            "of the backbone unfrozen, all the way to full fine-tune -- no frozen "
+            "or lightly-unfrozen config won there. Every run here trained only 4-5 "
+            "epochs, so none of these are converged models; treat rankings as "
+            "relative signal, not a final answer -- an extended run of the current "
+            "leader's exact hyperparameters, trained for more epochs to find its "
+            "real ceiling, is a natural follow-up (see `champion_extended` if one "
+            "has been run)."
         )
         lines.append("")
     lines.append(
