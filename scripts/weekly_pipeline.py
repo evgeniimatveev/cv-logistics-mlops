@@ -244,6 +244,10 @@ def main() -> None:
         [sys.executable, str(REPO_ROOT / "scripts" / "generate_benchmarks_md.py")],
         check=True,
     )
+    subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts" / "promote_best_model.py")],
+        check=True,
+    )
 
     git("add", "BENCHMARKS.md", "results/history.json")
     diff = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=REPO_ROOT)

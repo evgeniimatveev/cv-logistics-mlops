@@ -56,3 +56,13 @@ if __name__ == "__main__":
         print(f"=== BENCH DONE {config['run_name']} best_val_loss={result['best_val_loss']:.4f} ===")
 
     print("=== ALL BENCHMARKS DONE ===")
+
+    import subprocess
+    subprocess.run(
+        [sys.executable, str(Path(__file__).resolve().parent / "generate_benchmarks_md.py")],
+        check=True,
+    )
+    subprocess.run(
+        [sys.executable, str(Path(__file__).resolve().parent / "promote_best_model.py")],
+        check=True,
+    )

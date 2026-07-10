@@ -125,6 +125,7 @@ def train_one_run(config: dict) -> dict:
             name="model",
             input_example=example_input[:1].numpy(),
             serialization_format="pickle",
+            registered_model_name="cv_logistics_bin_count",
         )
 
     return {"best_val_loss": best_val_loss, **val_metrics}

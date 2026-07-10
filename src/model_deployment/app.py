@@ -1,5 +1,9 @@
 """
 Minimal FastAPI inference endpoint for the trained bin-count classifier.
+Loads straight from the MLflow Model Registry -- whatever version the
+"champion" alias points to -- rather than a hardcoded local checkpoint
+path, so promoting a new best model (scripts/promote_best_model.py)
+takes effect on next request without touching this file.
 
     uv run uvicorn src.model_deployment.app:app --port 8000
     curl -F "file=@some_bin.jpg" http://localhost:8000/predict
@@ -7,15 +11,20 @@ Minimal FastAPI inference endpoint for the trained bin-count classifier.
 
 import io
 
+import mlflow
 import torch
+import yaml
 from fastapi import FastAPI, File, UploadFile
 from PIL import Image
 
 from src.utils.dataset import build_transforms
-from src.utils.model import build_model
 
-MODEL_PATH = "models/best_model.pt"
-BACKBONE = "mobilenet_v2"
+MODEL_NAME = "cv_logistics_bin_count"
+MODEL_ALIAS = "champion"  # falls back to the latest version if unset
+
+with open("config/mlflow_config.yaml") as f:
+    _mlflow_cfg = yaml.safe_load(f)["mlflow"]
+mlflow.set_tracking_uri(_mlflow_cfg["tracking_uri"])
 
 app = FastAPI(title="cv-logistics-mlops bin-count inference")
 _model = None
@@ -25,8 +34,13 @@ _transform = build_transforms(train=False)
 def get_model():
     global _model
     if _model is None:
-        _model = build_model(BACKBONE, unfreeze_layers=0, dropout=0.3)
-        _model.load_state_dict(torch.load(MODEL_PATH, map_location="cpu"))
+        client = mlflow.tracking.MlflowClient()
+        try:
+            version = client.get_model_version_by_alias(MODEL_NAME, MODEL_ALIAS)
+        except mlflow.exceptions.MlflowException:
+            versions = client.search_model_versions(f"name='{MODEL_NAME}'")
+            version = max(versions, key=lambda v: int(v.version))
+        _model = mlflow.pytorch.load_model(f"models:/{MODEL_NAME}/{version.version}")
         _model.eval()
     return _model
 
