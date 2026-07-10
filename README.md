@@ -67,6 +67,8 @@ Full table (16 runs: 5 controlled + 10 sweep + 1 extended): [`BENCHMARKS.md`](BE
 
 Every run above trained only 4-5 epochs, so rankings among them are relative signal, not converged final answers. Resolved with `champion_extended` — reran `classic-sweep-4`'s exact hyperparameters for 15 epochs instead of 4: `val_loss` bottoms out around epoch 5 (1.30) then climbs steadily to 2.17 by epoch 15 while `train_loss` keeps falling the whole time — textbook overfitting on the 8,352-image train split. The original 4-epoch result (0.755 val MAE) was close to the real optimum, not a lucky early stop.
 
+![champion_extended: val_loss diverging from train_loss after epoch 5](docs/screenshots/wandb_champion_extended_overfitting.png)
+
 While investigating this, found and fixed a real bug: `train.py` was logging/registering whichever weights the model held after its *last* epoch, not the checkpoint that actually had the best `val_loss` — identical for runs that keep improving to the end, silently wrong for any run (like this one) that starts overfitting first. Now reloads the best checkpoint before logging, and tracks `best_val_mae` alongside `best_val_loss` so ranking always matches what's actually being served.
 
 Current best model is registered in the MLflow Model Registry as `cv_logistics_bin_count`, promoted to the `champion` alias — `src/model_deployment/app.py` serves whatever version currently holds that alias, no redeploy needed when a better run comes along.
@@ -98,18 +100,23 @@ duckdb analytics/mlflow_runs.duckdb -c "select * from runs limit 5"
 ### Best runs by validation MAE (Postgres)
 
 ```sql
-SELECT r.run_uuid, r.name AS run_name, lm.value AS val_mae
+SELECT
+    r.run_uuid, r.name AS run_name,
+    COALESCE(
+        MAX(CASE WHEN lm.key = 'best_val_mae' THEN lm.value END),
+        MAX(CASE WHEN lm.key = 'val_mae' THEN lm.value END)
+    ) AS val_mae
 FROM runs r
 JOIN experiments     e  ON r.experiment_id = e.experiment_id
 JOIN latest_metrics   lm ON r.run_uuid      = lm.run_uuid
-WHERE lm.key = 'val_mae'
-  AND e.name = 'cv_logistics_bin_count_v1'
+WHERE e.name = 'cv_logistics_bin_count_v1'
   AND r.lifecycle_stage = 'active'
-ORDER BY lm.value ASC
+GROUP BY r.run_uuid, r.name
+ORDER BY val_mae ASC
 LIMIT 5;
 ```
 
-(Uses `latest_metrics`, not `metrics` — the raw table has one row per epoch, so ordering by it directly mixes epochs across runs once more than one run exists.)
+(Uses `latest_metrics`, not `metrics` — the raw table has one row per epoch, so ordering by it directly mixes epochs across runs once more than one run exists. Prefers `best_val_mae` — the val_mae at the best-`val_loss` epoch, which is what the registered model's weights actually are — falling back to `val_mae` for runs logged before that fix.)
 
 More in `sql_queries/` — hyperparameter impact, per-experiment run counts, epoch-level learning curves.
 
@@ -160,6 +167,7 @@ uv run python sweeps/sweep.py
 # 4b. Or: fixed frozen/partial/full fine-tune comparison + results table
 uv run python scripts/run_benchmarks.py
 uv run python scripts/generate_benchmarks_md.py   # refreshes BENCHMARKS.md
+uv run python scripts/promote_best_model.py        # moves the "champion" alias if warranted
 
 # 5. Analytics
 uv run python sql_queries/export_to_duckdb.py
