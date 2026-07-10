@@ -4,7 +4,8 @@ Bin item-count classification (5 classes), MobileNetV2 transfer learning. Auto-g
 
 | Run | Backbone setting | Learning rate | Val accuracy | Val MAE | Best val loss |
 |---|---|---|---|---|---|
-| **bench_partial4** | 4 | 0.0001 | 0.342 | 0.884 | 1.3849 |
+| **bench_full** | -1 | 5e-05 | 0.379 | 0.827 | 1.3301 |
+| bench_partial4 | 4 | 0.0001 | 0.342 | 0.884 | 1.3849 |
 | bench_partial2 | 2 | 0.0003 | 0.319 | 0.914 | 1.4133 |
 | full_run_v1 | True | 0.001 | 0.322 | 0.949 | 1.4652 |
 | bench_frozen | 0 | 0.001 | 0.314 | 1.009 | 1.4752 |

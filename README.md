@@ -52,19 +52,21 @@ First baseline (`full_run_v1`, frozen MobileNetV2 backbone, 10 epochs): **32.2% 
 
 ![W&B single-run dashboard](docs/screenshots/wandb_full_run_v1.png)
 
-The comparison benchmark (`scripts/run_benchmarks.py`, same 5 epochs each, only `unfreeze_layers` + a correspondingly lower learning rate change) confirms it, and the trend keeps improving with more of the backbone unfrozen — up to a point:
+The comparison benchmark (`scripts/run_benchmarks.py`, same 5 epochs each, only `unfreeze_layers` + a correspondingly lower learning rate change) confirms it — and the result is monotonic: the more of the backbone is trainable, the better every metric gets, all the way to full fine-tune.
 
 ![W&B run comparison overlay, all 4 configs](docs/screenshots/wandb_all_configs_comparison.png)
 
 | Config | Epochs | `unfreeze_layers` | Val accuracy | Val MAE | Best val loss |
 |---|---|---|---|---|---|
-| **Partial fine-tune, 4 blocks (5 epochs)** | 5 | 4 | **34.2%** | **0.884** | **1.385** |
-| Partial fine-tune, 2 blocks (5 epochs) | 5 | 2 | 31.9% | 0.914 | 1.413 |
-| Full fine-tune | 5 | -1 | *running* | *running* | *running* |
+| **Full fine-tune** | 5 | -1 | **37.9%** | **0.827** | **1.330** |
+| Partial fine-tune, 4 blocks | 5 | 4 | 34.2% | 0.884 | 1.385 |
+| Partial fine-tune, 2 blocks | 5 | 2 | 31.9% | 0.914 | 1.413 |
 | Frozen, 10 epochs (original baseline) | 10 | 0 | 32.2% | 0.949 | 1.465 |
 | Frozen (5 epochs) | 5 | 0 | 31.4% | 1.009 | 1.475 |
 
-Best model so far (`bench_partial4`) is registered in the MLflow Model Registry as `cv_logistics_bin_count`, promoted to the `champion` alias — `src/model_deployment/app.py` serves whatever version currently holds that alias, no redeploy needed when a better run comes along.
+Open question: full fine-tune's `val_loss` was still falling at epoch 5 (no sign yet of overfitting the 8,352-image train split), so this may not be the ceiling — worth another run with more epochs and/or early stopping to find out.
+
+Best model (`bench_full`, v2) is registered in the MLflow Model Registry as `cv_logistics_bin_count`, promoted to the `champion` alias — `src/model_deployment/app.py` serves whatever version currently holds that alias, no redeploy needed when a better run comes along.
 
 Live comparison generated straight from Postgres: [`BENCHMARKS.md`](BENCHMARKS.md) (refresh with `uv run python scripts/generate_benchmarks_md.py`), or query `sql_queries/run_comparison.sql` directly.
 
