@@ -19,7 +19,7 @@ DEFAULTS = {
     "backbone": "mobilenet_v2",
     "learning_rate": 0.001,
     "batch_size": 32,
-    "epochs": 6,
+    "epochs": 4,
     "unfreeze_layers": 0,
     "dropout": 0.3,
 }
@@ -28,6 +28,9 @@ DEFAULTS = {
 def train():
     wandb.init(config=DEFAULTS)
     config = {**DEFAULTS, **dict(wandb.config)}
+    # keep MLflow run names in sync with W&B's, so a run is identifiable
+    # by the same name in both systems (and in BENCHMARKS.md)
+    config["run_name"] = wandb.run.name
     train_one_run(config)
     wandb.finish()
 

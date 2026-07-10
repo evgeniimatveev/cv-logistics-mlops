@@ -56,12 +56,20 @@ def main() -> None:
         "| Run | Backbone setting | Learning rate | Val accuracy | Val MAE | Best val loss |",
         "|---|---|---|---|---|---|",
     ]
+    best_seen = False
     for r in rows:
         val_acc = f"{float(r['val_accuracy']):.3f}" if r["val_accuracy"] is not None else "-"
         val_mae = f"{float(r['val_mae']):.3f}" if r["val_mae"] is not None else "-"
         best_loss = f"{float(r['best_val_loss']):.4f}" if r["best_val_loss"] is not None else "-"
+
+        # rows are pre-sorted by val_mae ASC -- the first one with a real
+        # value is the best; bold it so it stands out in the table
+        is_best = not best_seen and r["val_mae"] is not None
+        best_seen = best_seen or is_best
+        run_name = f"**{r['run_name']}**" if is_best else (r["run_name"] or "-")
+
         lines.append(
-            f"| {r['run_name'] or '-'} | {r['backbone_setting'] or '-'} "
+            f"| {run_name} | {r['backbone_setting'] or '-'} "
             f"| {r['learning_rate'] or '-'} | {val_acc} | {val_mae} | {best_loss} |"
         )
 
