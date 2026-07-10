@@ -52,23 +52,31 @@ First baseline (`full_run_v1`, frozen MobileNetV2 backbone, 10 epochs): **32.2% 
 
 ![W&B single-run dashboard](docs/screenshots/wandb_full_run_v1.png)
 
-The comparison benchmark (`scripts/run_benchmarks.py`, same 5 epochs each, only `unfreeze_layers` + a correspondingly lower learning rate change) confirms it — and the result is monotonic: the more of the backbone is trainable, the better every metric gets, all the way to full fine-tune.
+The controlled comparison (`scripts/run_benchmarks.py`, same 5 epochs each, only `unfreeze_layers` + a correspondingly lower learning rate change) confirmed it — monotonic improvement, more of the backbone trainable = better every metric, all the way to full fine-tune. A follow-up 10-trial W&B Bayesian sweep (also varying backbone/batch size/dropout) then beat that entire comparison: **`classic-sweep-4`, ResNet18 with `unfreeze_layers=2`, val MAE 0.755** — better than the controlled full-fine-tune MobileNetV2 result (0.827), and a reminder that architecture choice can matter more than how much of it you unfreeze.
 
 ![W&B run comparison overlay, all 4 configs](docs/screenshots/wandb_all_configs_comparison.png)
 
-| Config | Epochs | `unfreeze_layers` | Val accuracy | Val MAE | Best val loss |
-|---|---|---|---|---|---|
-| **Full fine-tune** | 5 | -1 | **37.9%** | **0.827** | **1.330** |
-| Partial fine-tune, 4 blocks | 5 | 4 | 34.2% | 0.884 | 1.385 |
-| Partial fine-tune, 2 blocks | 5 | 2 | 31.9% | 0.914 | 1.413 |
-| Frozen, 10 epochs (original baseline) | 10 | 0 | 32.2% | 0.949 | 1.465 |
-| Frozen (5 epochs) | 5 | 0 | 31.4% | 1.009 | 1.475 |
+| Run | Backbone | `unfreeze_layers` | Val accuracy | Val MAE |
+|---|---|---|---|---|
+| **classic-sweep-4** | ResNet18 | 2 | **41.4%** | **0.755** |
+| bench_full | MobileNetV2 | -1 (full) | 37.9% | 0.827 |
+| bench_partial4 | MobileNetV2 | 4 | 34.2% | 0.884 |
+| full_run_v1 (10 epochs) | MobileNetV2 | 0 (frozen) | 32.2% | 0.949 |
 
-Open question: full fine-tune's `val_loss` was still falling at epoch 5 (no sign yet of overfitting the 8,352-image train split), so this may not be the ceiling — worth another run with more epochs and/or early stopping to find out.
+Full table (15 runs: 5 controlled + 10 sweep): [`BENCHMARKS.md`](BENCHMARKS.md) (refresh with `uv run python scripts/generate_benchmarks_md.py`), or query `sql_queries/run_comparison.sql` directly.
 
-Best model (`bench_full`, v2) is registered in the MLflow Model Registry as `cv_logistics_bin_count`, promoted to the `champion` alias — `src/model_deployment/app.py` serves whatever version currently holds that alias, no redeploy needed when a better run comes along.
+Every run above trained only 4-5 epochs, so none of these are converged models — rankings are relative signal, not a final answer. A 15-epoch extended run of `classic-sweep-4`'s exact hyperparameters is in progress to find out whether it actually converges or keeps improving.
 
-Live comparison generated straight from Postgres: [`BENCHMARKS.md`](BENCHMARKS.md) (refresh with `uv run python scripts/generate_benchmarks_md.py`), or query `sql_queries/run_comparison.sql` directly.
+Current best model is registered in the MLflow Model Registry as `cv_logistics_bin_count`, promoted to the `champion` alias — `src/model_deployment/app.py` serves whatever version currently holds that alias, no redeploy needed when a better run comes along.
+
+<details>
+<summary><strong>More screenshots</strong> — sweep parallel coordinates, parameter importance</summary>
+
+W&B's Bayesian sweep view, all 10 trials: which hyperparameters actually correlated with a lower val MAE (`batch_size`, `unfreeze_layers`, and `learning_rate` came out as the top 3 by importance), and the parallel-coordinates trace of every trial's config against its result.
+
+![W&B sweep parallel coordinates](docs/screenshots/wandb_sweep_parallel_coords.png)
+
+</details>
 
 ---
 
