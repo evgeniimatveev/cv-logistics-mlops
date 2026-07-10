@@ -18,6 +18,7 @@ Usage:
     uv run python scripts/weekly_pipeline.py
 """
 
+import argparse
 import json
 import socket
 import subprocess
@@ -28,6 +29,7 @@ from pathlib import Path
 
 import wandb
 import yaml
+from PIL import Image
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
@@ -132,6 +134,91 @@ def git(*args: str) -> None:
     subprocess.run(["git", *args], cwd=REPO_ROOT, check=True)
 
 
+SMOKE_MANIFEST = REPO_ROOT / "data" / "_smoke" / "manifest.csv"
+SMOKE_HISTORY_PATH = REPO_ROOT / "results" / "history_smoketest.json"
+
+
+def build_smoke_manifest() -> Path:
+    """Tiny synthetic manifest so --smoke exercises the real train_one_run
+    code path in ~seconds instead of minutes, without touching real data
+    or the real MLflow experiment history."""
+    images_dir = SMOKE_MANIFEST.parent / "images"
+    images_dir.mkdir(parents=True, exist_ok=True)
+
+    rows = ["image_path,count,split"]
+    for count in range(1, 6):
+        for split, n in [("train", 3), ("val", 1)]:
+            for i in range(n):
+                img_path = images_dir / f"{count}_{split}_{i}.jpg"
+                if not img_path.exists():
+                    Image.new("RGB", (64, 64), color=(count * 40, 0, 0)).save(img_path)
+                rows.append(f"{img_path},{count},{split}")
+
+    SMOKE_MANIFEST.write_text("\n".join(rows) + "\n")
+    return SMOKE_MANIFEST
+
+
+def run_smoke(iteration: int) -> None:
+    """One lightweight pass through ensure_mlflow_server_running -> train
+    -> JSON append -> BENCHMARKS.md regen, WITHOUT touching git or the
+    real results/history.json. For stress-testing pipeline stability
+    before trusting it to run unattended."""
+    ensure_mlflow_server_running()
+
+    manifest = build_smoke_manifest()
+    config = {
+        "manifest": str(manifest),
+        "backbone": "mobilenet_v2",
+        "learning_rate": 0.001,
+        "batch_size": 4,
+        "epochs": 1,
+        "unfreeze_layers": 0,
+        "dropout": 0.3,
+        "run_name": f"smoketest_pipeline_{iteration}",
+    }
+    print(f"=== SMOKE {iteration}: {config['run_name']} ===")
+
+    wandb_mode_before = None
+    import os
+    wandb_mode_before = os.environ.get("WANDB_MODE")
+    os.environ["WANDB_MODE"] = "offline"
+    try:
+        wandb.init(project=WANDB_PROJECT, config=config, name=config["run_name"], reinit=True)
+        result = train_one_run(config)
+        wandb.finish()
+    finally:
+        if wandb_mode_before is None:
+            os.environ.pop("WANDB_MODE", None)
+        else:
+            os.environ["WANDB_MODE"] = wandb_mode_before
+
+    entry = {**config, **result, "timestamp": datetime.now(timezone.utc).isoformat()}
+    history = json.loads(SMOKE_HISTORY_PATH.read_text()) if SMOKE_HISTORY_PATH.exists() else []
+    history.append(entry)
+    SMOKE_HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    SMOKE_HISTORY_PATH.write_text(json.dumps(history, indent=2), encoding="utf-8")
+
+    print(f"=== SMOKE {iteration} OK: best_val_loss={result['best_val_loss']:.4f} ===")
+
+
+def cleanup_smoke_runs() -> None:
+    """Soft-delete the smoketest_pipeline_* MLflow runs so they don't
+    pollute the real experiment's SQL queries/BENCHMARKS.md."""
+    import mlflow
+
+    mlflow.set_tracking_uri(_mlflow_cfg["tracking_uri"])
+    client = mlflow.tracking.MlflowClient()
+    exp = client.get_experiment_by_name(_mlflow_cfg["experiment_name"])
+    runs = client.search_runs([exp.experiment_id])
+    deleted = 0
+    for r in runs:
+        name = r.data.tags.get("mlflow.runName", "")
+        if name.startswith("smoketest_pipeline_"):
+            client.delete_run(r.info.run_id)
+            deleted += 1
+    print(f"Cleaned up {deleted} smoke-test MLflow runs.")
+
+
 def main() -> None:
     ensure_mlflow_server_running()
 
@@ -173,4 +260,19 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--smoke", type=int, default=0, metavar="N",
+        help="run N lightweight stability passes on synthetic data instead of the real pipeline",
+    )
+    parser.add_argument("--cleanup-smoke", action="store_true", help="delete smoketest_pipeline_* MLflow runs")
+    args = parser.parse_args()
+
+    if args.cleanup_smoke:
+        cleanup_smoke_runs()
+    elif args.smoke:
+        for i in range(1, args.smoke + 1):
+            run_smoke(i)
+        print(f"=== {args.smoke} smoke passes completed OK ===")
+    else:
+        main()

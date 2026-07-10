@@ -15,3 +15,4 @@ tracking/
 
 .env
 config/sweep_id.txt
+results/history_smoketest.json
