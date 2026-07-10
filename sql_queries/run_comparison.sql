@@ -8,7 +8,14 @@ SELECT
              WHEN p.key = 'freeze_backbone' THEN p.value END) AS backbone_setting,
     MAX(CASE WHEN p.key = 'learning_rate' THEN p.value END)   AS learning_rate,
     MAX(CASE WHEN lm.key = 'val_accuracy' THEN lm.value END)  AS val_accuracy,
-    MAX(CASE WHEN lm.key = 'val_mae' THEN lm.value END)       AS val_mae,
+    -- best_val_mae = val_mae at the best-val_loss epoch, which is what
+    -- the registered model artifact's weights actually are (train.py
+    -- reloads that checkpoint before logging). Falls back to val_mae
+    -- (final epoch) for runs logged before best_val_mae existed.
+    COALESCE(
+        MAX(CASE WHEN lm.key = 'best_val_mae' THEN lm.value END),
+        MAX(CASE WHEN lm.key = 'val_mae' THEN lm.value END)
+    ) AS val_mae,
     MAX(CASE WHEN lm.key = 'best_val_loss' THEN lm.value END) AS best_val_loss
 FROM runs r
 JOIN experiments      e  ON r.experiment_id = e.experiment_id

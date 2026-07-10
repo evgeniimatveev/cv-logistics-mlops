@@ -25,7 +25,14 @@ SELECT
              WHEN p.key = 'freeze_backbone' THEN p.value END) AS backbone_setting,
     MAX(CASE WHEN p.key = 'learning_rate' THEN p.value END)   AS learning_rate,
     MAX(CASE WHEN lm.key = 'val_accuracy' THEN lm.value END)  AS val_accuracy,
-    MAX(CASE WHEN lm.key = 'val_mae' THEN lm.value END)       AS val_mae,
+    -- best_val_mae (val_mae at the best-val_loss epoch) is what the
+    -- registered model artifact actually corresponds to; val_mae alone
+    -- is just whatever epoch happened to log last, which is the same
+    -- thing only if the run never started overfitting before it ended
+    COALESCE(
+        MAX(CASE WHEN lm.key = 'best_val_mae' THEN lm.value END),
+        MAX(CASE WHEN lm.key = 'val_mae' THEN lm.value END)
+    ) AS val_mae,
     MAX(CASE WHEN lm.key = 'best_val_loss' THEN lm.value END) AS best_val_loss
 FROM runs r
 JOIN experiments e ON r.experiment_id = e.experiment_id
@@ -114,11 +121,19 @@ def main() -> None:
             "comparison (`bench_*`), accuracy/MAE improved monotonically with more "
             "of the backbone unfrozen, all the way to full fine-tune -- no frozen "
             "or lightly-unfrozen config won there. Every run here trained only 4-5 "
-            "epochs, so none of these are converged models; treat rankings as "
-            "relative signal, not a final answer -- an extended run of the current "
-            "leader's exact hyperparameters, trained for more epochs to find its "
-            "real ceiling, is a natural follow-up (see `champion_extended` if one "
-            "has been run)."
+            "epochs, so rankings among them are relative signal, not converged "
+            "final answers."
+        )
+        lines.append("")
+        lines.append(
+            "**Resolved:** `champion_extended` re-ran `classic-sweep-4`'s exact "
+            "hyperparameters for 15 epochs instead of 4 to check whether it "
+            "would keep improving. It didn't -- `val_loss` bottoms out around "
+            "epoch 5 (1.30) then climbs steadily to 2.17 by epoch 15 while "
+            "`train_loss` keeps falling the whole time (1.50 -> 0.62): textbook "
+            "overfitting on the 8,352-image train split, not a config that "
+            "just needed more epochs. The original 4-epoch result was close to "
+            "the real optimum, not a lucky early stop."
         )
         lines.append("")
     lines.append(

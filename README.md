@@ -63,9 +63,11 @@ The controlled comparison (`scripts/run_benchmarks.py`, same 5 epochs each, only
 | bench_partial4 | MobileNetV2 | 4 | 34.2% | 0.884 |
 | full_run_v1 (10 epochs) | MobileNetV2 | 0 (frozen) | 32.2% | 0.949 |
 
-Full table (15 runs: 5 controlled + 10 sweep): [`BENCHMARKS.md`](BENCHMARKS.md) (refresh with `uv run python scripts/generate_benchmarks_md.py`), or query `sql_queries/run_comparison.sql` directly.
+Full table (16 runs: 5 controlled + 10 sweep + 1 extended): [`BENCHMARKS.md`](BENCHMARKS.md) (refresh with `uv run python scripts/generate_benchmarks_md.py`), or query `sql_queries/run_comparison.sql` directly.
 
-Every run above trained only 4-5 epochs, so none of these are converged models — rankings are relative signal, not a final answer. A 15-epoch extended run of `classic-sweep-4`'s exact hyperparameters is in progress to find out whether it actually converges or keeps improving.
+Every run above trained only 4-5 epochs, so rankings among them are relative signal, not converged final answers. Resolved with `champion_extended` — reran `classic-sweep-4`'s exact hyperparameters for 15 epochs instead of 4: `val_loss` bottoms out around epoch 5 (1.30) then climbs steadily to 2.17 by epoch 15 while `train_loss` keeps falling the whole time — textbook overfitting on the 8,352-image train split. The original 4-epoch result (0.755 val MAE) was close to the real optimum, not a lucky early stop.
+
+While investigating this, found and fixed a real bug: `train.py` was logging/registering whichever weights the model held after its *last* epoch, not the checkpoint that actually had the best `val_loss` — identical for runs that keep improving to the end, silently wrong for any run (like this one) that starts overfitting first. Now reloads the best checkpoint before logging, and tracks `best_val_mae` alongside `best_val_loss` so ranking always matches what's actually being served.
 
 Current best model is registered in the MLflow Model Registry as `cv_logistics_bin_count`, promoted to the `champion` alias — `src/model_deployment/app.py` serves whatever version currently holds that alias, no redeploy needed when a better run comes along.
 

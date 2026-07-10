@@ -17,6 +17,7 @@ Auto-generated from the MLflow/Postgres backend -- run `uv run python scripts/ge
 | Run | Backbone setting | Learning rate | Val accuracy | Val MAE | Best val loss |
 |---|---|---|---|---|---|
 | **classic-sweep-4** | 2 | 0.0022685055152514267 | 0.414 | 0.755 | 1.3074 |
+| champion_extended | 2 | 0.0022685055152514267 | 0.375 | 0.789 | 1.3005 |
 | bench_full | -1 | 5e-05 | 0.379 | 0.827 | 1.3301 |
 | eternal-sweep-6 | 2 | 0.0022366334139440284 | 0.399 | 0.844 | 1.3040 |
 | bench_partial4 | 4 | 0.0001 | 0.342 | 0.884 | 1.3849 |
@@ -34,6 +35,8 @@ Auto-generated from the MLflow/Postgres backend -- run `uv run python scripts/ge
 
 ## Key finding
 
-As of this refresh, **classic-sweep-4** leads (`unfreeze_layers=2`, val MAE 0.755). In the controlled comparison (`bench_*`), accuracy/MAE improved monotonically with more of the backbone unfrozen, all the way to full fine-tune -- no frozen or lightly-unfrozen config won there. Every run here trained only 4-5 epochs, so none of these are converged models; treat rankings as relative signal, not a final answer -- an extended run of the current leader's exact hyperparameters, trained for more epochs to find its real ceiling, is a natural follow-up (see `champion_extended` if one has been run).
+As of this refresh, **classic-sweep-4** leads (`unfreeze_layers=2`, val MAE 0.755). In the controlled comparison (`bench_*`), accuracy/MAE improved monotonically with more of the backbone unfrozen, all the way to full fine-tune -- no frozen or lightly-unfrozen config won there. Every run here trained only 4-5 epochs, so rankings among them are relative signal, not converged final answers.
+
+**Resolved:** `champion_extended` re-ran `classic-sweep-4`'s exact hyperparameters for 15 epochs instead of 4 to check whether it would keep improving. It didn't -- `val_loss` bottoms out around epoch 5 (1.30) then climbs steadily to 2.17 by epoch 15 while `train_loss` keeps falling the whole time (1.50 -> 0.62): textbook overfitting on the 8,352-image train split, not a config that just needed more epochs. The original 4-epoch result was close to the real optimum, not a lucky early stop.
 
 `unfreeze_layers`: 0 = fully frozen backbone, N = last N blocks unfrozen, -1 = full fine-tune. `freeze_backbone`: legacy param name (True/False) logged by runs from before the unfreeze_layers refactor.

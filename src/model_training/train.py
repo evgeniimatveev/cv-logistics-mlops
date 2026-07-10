@@ -78,6 +78,7 @@ def train_one_run(config: dict) -> dict:
     mlflow.set_experiment(mlflow_cfg["experiment_name"])
 
     best_val_loss = float("inf")
+    best_val_mae = None
     models_dir = Path(config.get("models_dir", REPO_ROOT / "models"))
     models_dir.mkdir(parents=True, exist_ok=True)
     best_path = models_dir / "best_model.pt"
@@ -116,9 +117,17 @@ def train_one_run(config: dict) -> dict:
 
             if val_metrics["loss"] < best_val_loss:
                 best_val_loss = val_metrics["loss"]
+                best_val_mae = val_metrics["mae"]
                 torch.save(model.state_dict(), best_path)
 
+        # log/register the checkpoint that actually had the best val_loss,
+        # not whatever the model holds after the final epoch -- those are
+        # the same thing only if val_loss never regresses, which isn't
+        # true once a run trains long enough to start overfitting
+        model.load_state_dict(torch.load(best_path, map_location=device))
+
         mlflow.log_metric("best_val_loss", best_val_loss)
+        mlflow.log_metric("best_val_mae", best_val_mae)
         example_input, _ = next(iter(val_loader))
         mlflow.pytorch.log_model(
             model,
@@ -128,4 +137,4 @@ def train_one_run(config: dict) -> dict:
             registered_model_name="cv_logistics_bin_count",
         )
 
-    return {"best_val_loss": best_val_loss, **val_metrics}
+    return {"best_val_loss": best_val_loss, "best_val_mae": best_val_mae, **val_metrics}
