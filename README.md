@@ -141,7 +141,7 @@ uv run python src/clean_data/run.py              # builds data/processed/manifes
 uv run python -m src.model_training.run --epochs 8 --backbone mobilenet_v2
 
 # 4. W&B hyperparameter sweep (10 Bayesian runs)
-cd sweeps && uv run python sweep.py
+uv run python sweeps/sweep.py
 
 # 4b. Or: fixed frozen/partial/full fine-tune comparison + results table
 uv run python scripts/run_benchmarks.py

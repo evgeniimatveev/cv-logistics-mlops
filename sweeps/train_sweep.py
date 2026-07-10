@@ -15,7 +15,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from src.model_training.train import train_one_run  # noqa: E402
 
 DEFAULTS = {
-    "manifest": "data/processed/manifest.csv",
+    "manifest": str(REPO_ROOT / "data" / "processed" / "manifest.csv"),
     "backbone": "mobilenet_v2",
     "learning_rate": 0.001,
     "batch_size": 32,

@@ -78,7 +78,7 @@ def train_one_run(config: dict) -> dict:
     mlflow.set_experiment(mlflow_cfg["experiment_name"])
 
     best_val_loss = float("inf")
-    models_dir = Path(config.get("models_dir", "models"))
+    models_dir = Path(config.get("models_dir", REPO_ROOT / "models"))
     models_dir.mkdir(parents=True, exist_ok=True)
     best_path = models_dir / "best_model.pt"
 
