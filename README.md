@@ -71,7 +71,9 @@ Every run above trained only 4-5 epochs, so rankings among them are relative sig
 
 While investigating this, found and fixed a real bug: `train.py` was logging/registering whichever weights the model held after its *last* epoch, not the checkpoint that actually had the best `val_loss` — identical for runs that keep improving to the end, silently wrong for any run (like this one) that starts overfitting first. Now reloads the best checkpoint before logging, and tracks `best_val_mae` alongside `best_val_loss` so ranking always matches what's actually being served.
 
-Current best model is registered in the MLflow Model Registry as `cv_logistics_bin_count`, promoted to the `champion` alias — `src/model_deployment/app.py` serves whatever version currently holds that alias, no redeploy needed when a better run comes along.
+Current best model is registered in the MLflow Model Registry as `cv_logistics_bin_count`, promoted to the `champion` alias — `src/model_deployment/app.py` serves whatever version currently holds that alias, no redeploy needed when a better run comes along. Traceable straight back to its source run and logged input/output schema:
+
+![MLflow Model Registry: version 6, champion alias, source run, I/O schema](docs/screenshots/mlflow_model_registry.png)
 
 <details>
 <summary><strong>More screenshots</strong> — sweep parallel coordinates, parameter importance</summary>
