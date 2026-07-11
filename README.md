@@ -124,6 +124,14 @@ More in `sql_queries/` — hyperparameter impact, per-experiment run counts, epo
 
 ---
 
+## Weekly automation
+
+`scripts/weekly_pipeline.py` runs unattended via Windows Task Scheduler (`scripts/register_task.ps1`, every Sunday 09:00): makes sure the MLflow server is up, trains the next not-yet-run config from the comparison (falling back to one W&B sweep trial once all of them are done), appends the result to `results/history.json`, regenerates `BENCHMARKS.md` and the `champion` alias, and `git commit`/`push`es — no manual step after the first setup.
+
+This has to live on the machine itself rather than GitHub Actions: hosted runners can't reach a `localhost` Postgres/MLflow server. `scripts/weekly_pipeline.py --smoke N` runs N lightweight passes on synthetic data (no git writes) to sanity-check the automation before trusting it unattended.
+
+---
+
 ## Project Structure
 
 ```
